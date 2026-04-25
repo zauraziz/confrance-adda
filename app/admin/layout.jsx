@@ -1,12 +1,15 @@
-import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
-import AdminShell from '@/components/admin/AdminShell';
+import { getSession } from "@/lib/auth";
+import AdminShell from "@/components/admin/AdminShell";
+
+export const dynamic = 'force-dynamic';
 
 export default async function AdminLayout({ children }) {
-  // Auth artıq middleware tərəfindən yoxlanılır,
-  // amma admin obyektini layout-a vermək üçün təkrar oxuyuruq
-  const session = await getSession();
-  if (!session?.admin) redirect('/admin/login');
+  let admin = null;
+  try {
+    const session = await getSession();
+    admin = session?.admin || null;
+  } catch { admin = null; }
 
-  return <AdminShell admin={session.admin}>{children}</AdminShell>;
+  if (!admin) return <>{children}</>;
+  return <AdminShell admin={admin}>{children}</AdminShell>;
 }
