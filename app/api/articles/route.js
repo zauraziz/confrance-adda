@@ -6,6 +6,7 @@ import { sql } from '@/lib/db';
 import { z } from 'zod';
 import { sendArticleConfirmation, sendAdminNotification } from '@/lib/email';
 import { requireAdmin } from '@/lib/auth';
+import { rateLimit, getClientIp } from '@/lib/ratelimit';
 
 const ArticleSchema = z.object({
   full_name: z.string().min(2).max(160),
@@ -20,31 +21,63 @@ const ArticleSchema = z.object({
   topic_area: z.string().max(120).optional().nullable(),
   language: z.enum(['az', 'en']).default('az'),
   participation_type: z.string().max(30).optional().nullable(),
-  file_url: z.string().optional().nullable(),
-  file_name: z.string().optional().nullable(),
-  section_id: z.number().optional().nullable(),
+  file_url: z.string().url().max(500).optional().nullable(),
+  file_name: z.string().max(255).optional().nullable(),
+  section_id: z.number().int().positive().optional().nullable(),
 });
+
+// XSS - HTML stripping
+function sanitize(s) {
+  if (typeof s !== 'string') return s;
+  return s.replace(/<[^>]*>/g, '').trim();
+}
 
 export async function POST(req) {
   try {
+    const ip = getClientIp(req);
+    const { allowed } = rateLimit(`article:${ip}`, 3, 60 * 60 * 1000); // 3 per hour
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Çox sayda müraciət. 1 saat sonra yenidən cəhd edin.' },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const data = ArticleSchema.parse(body);
+
+    // Sanitize string inputs against XSS
+    const clean = {
+      ...data,
+      full_name: sanitize(data.full_name),
+      organization: sanitize(data.organization),
+      position: sanitize(data.position),
+      title: sanitize(data.title),
+      abstract: sanitize(data.abstract),
+      keywords: sanitize(data.keywords),
+    };
+
     const rows = await sql`
       INSERT INTO articles (full_name, email, phone, country, organization, position, title, abstract, keywords, topic_area, language, participation_type, file_url, file_name, section_id)
-      VALUES (${data.full_name}, ${data.email}, ${data.phone||null}, ${data.country||null}, ${data.organization||null},
-              ${data.position||null}, ${data.title}, ${data.abstract}, ${data.keywords||null},
-              ${data.topic_area||null}, ${data.language}, ${data.participation_type||'article'},
-              ${data.file_url||null}, ${data.file_name||null}, ${data.section_id||null})
+      VALUES (${clean.full_name}, ${clean.email}, ${clean.phone||null}, ${clean.country||null}, ${clean.organization||null},
+              ${clean.position||null}, ${clean.title}, ${clean.abstract}, ${clean.keywords||null},
+              ${clean.topic_area||null}, ${clean.language}, ${clean.participation_type||'article'},
+              ${clean.file_url||null}, ${clean.file_name||null}, ${clean.section_id||null})
       RETURNING id`;
+
     Promise.all([
-      sendArticleConfirmation({ to: data.email, fullName: data.full_name, title: data.title, lang: data.language }).catch(e => console.error(e.message)),
-      sendAdminNotification({ fullName: data.full_name, email: data.email, title: data.title }).catch(e => console.error(e.message)),
+      sendArticleConfirmation({ to: clean.email, fullName: clean.full_name, title: clean.title, lang: clean.language }).catch(e => console.error(e.message)),
+      sendAdminNotification({ fullName: clean.full_name, email: clean.email, title: clean.title }).catch(e => console.error(e.message)),
     ]);
+
     return NextResponse.json({ ok: true, id: rows[0].id });
   } catch (e) {
-    if (e.errors) return NextResponse.json({ error: e.errors }, { status: 400 });
+    if (e.errors) {
+      const msgs = e.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+      return NextResponse.json({ error: msgs }, { status: 400 });
+    }
     console.error('POST /api/articles:', e.message);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Server xətası' }, { status: 500 });
   }
 }
 
@@ -56,13 +89,13 @@ export async function GET(req) {
     const q = searchParams.get('q');
     let rows;
     if (status && q) {
-      rows = await sql`SELECT * FROM articles WHERE status=${status} AND (full_name ILIKE ${'%'+q+'%'} OR title ILIKE ${'%'+q+'%'}) ORDER BY created_at DESC`;
+      rows = await sql`SELECT * FROM articles WHERE status=${status} AND (full_name ILIKE ${'%'+q+'%'} OR title ILIKE ${'%'+q+'%'}) ORDER BY created_at DESC LIMIT 200`;
     } else if (status) {
-      rows = await sql`SELECT * FROM articles WHERE status=${status} ORDER BY created_at DESC`;
+      rows = await sql`SELECT * FROM articles WHERE status=${status} ORDER BY created_at DESC LIMIT 200`;
     } else if (q) {
-      rows = await sql`SELECT * FROM articles WHERE full_name ILIKE ${'%'+q+'%'} OR title ILIKE ${'%'+q+'%'} ORDER BY created_at DESC`;
+      rows = await sql`SELECT * FROM articles WHERE full_name ILIKE ${'%'+q+'%'} OR title ILIKE ${'%'+q+'%'} ORDER BY created_at DESC LIMIT 200`;
     } else {
-      rows = await sql`SELECT * FROM articles ORDER BY created_at DESC`;
+      rows = await sql`SELECT * FROM articles ORDER BY created_at DESC LIMIT 200`;
     }
     return NextResponse.json({ items: rows });
   } catch (e) {
