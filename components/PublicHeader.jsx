@@ -2,10 +2,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Anchor, Menu, X, ArrowRight, ChevronDown } from "lucide-react";
+import { Menu, X, ArrowRight, ChevronDown } from "lucide-react";
 import { useLang } from "./LangProvider";
 
-export default function PublicHeader({ menuPages = [] }) {
+export default function PublicHeader({ menuPages = [], menuItems = null, logoUrl = null }) {
   const { lang, setLang, t } = useLang();
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -17,31 +17,27 @@ export default function PublicHeader({ menuPages = [] }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const links = [
+  // Default links - əgər admin-dən menyu gəlmirsə
+  const defaultLinks = [
     { href: "/#about", label: t.navAbout },
     { href: "/#speakers", label: t.navSpeakers },
     { href: "/#programme", label: t.navProgramme },
-    { href: "/submit-article", label: t.navSubmit },
+    { href: "/register", label: t.navSubmit },
     { href: "/#contact", label: t.navContact },
   ];
 
+  const links = menuItems && menuItems.length > 0
+    ? menuItems.filter(m => m.is_active && (m.position === "header" || m.position === "both"))
+        .map(m => ({ href: m.href, label: lang === "az" ? m.label_az : m.label_en }))
+    : defaultLinks;
+
   return (
     <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${
-      scrolled ? "bg-white/85 backdrop-blur-xl shadow-[0_1px_0_rgba(0,35,102,0.08)]" : "bg-transparent"
+      scrolled ? "bg-white/95 backdrop-blur-xl shadow-[0_1px_0_rgba(0,35,102,0.08)]" : "bg-transparent"
     }`}>
       <div className="max-w-[1400px] mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <div className={`relative w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-            scrolled ? "bg-navy" : "bg-white/15 backdrop-blur ring-1 ring-white/30"
-          }`}>
-            <Anchor className={`w-5 h-5 ${scrolled ? "text-gold" : "text-white"}`} strokeWidth={1.6} />
-          </div>
-          <div className="leading-tight">
-            <div className={`text-[11px] tracking-[0.22em] uppercase font-medium ${scrolled ? "text-navy/70" : "text-white/80"}`}>ADDA · 1996</div>
-            <div className={`font-display text-[17px] font-medium ${scrolled ? "text-navy" : "text-white"}`}>
-              {lang === "az" ? "Dənizçilik Konfransı" : "Maritime Conference"}
-            </div>
-          </div>
+          <Logo scrolled={scrolled} customUrl={logoUrl} />
         </Link>
 
         <nav className="hidden lg:flex items-center gap-7">
@@ -60,7 +56,7 @@ export default function PublicHeader({ menuPages = [] }) {
 
         <div className="flex items-center gap-4">
           <LangToggle lang={lang} setLang={setLang} scrolled={scrolled} />
-          <Link href="/submit-article"
+          <Link href="/register"
                 className={`hidden md:inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-medium tracking-wide transition-all ${
                   scrolled ? "bg-navy text-white hover:bg-navy-deep" : "bg-white text-navy hover:bg-gold hover:text-white"
                 }`}>
@@ -93,6 +89,50 @@ export default function PublicHeader({ menuPages = [] }) {
         )}
       </AnimatePresence>
     </header>
+  );
+}
+
+function Logo({ scrolled, customUrl }) {
+  // Əgər admin custom logo yükləyibsə
+  if (customUrl && customUrl.length > 5 && !customUrl.endsWith("default-logo.svg")) {
+    return <img src={customUrl} alt="ADDA Conference" className="h-12 w-auto" />;
+  }
+
+  // ADDA Maritime Academy əsaslı default logo
+  const primary = scrolled ? "#002366" : "#ffffff";
+  const accent = "#c9a55a";
+
+  return (
+    <div className="flex items-center gap-3">
+      {/* SVG monogram */}
+      <svg width="44" height="44" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+        {/* Outer ring */}
+        <circle cx="30" cy="30" r="28" fill="none" stroke={primary} strokeWidth="1.5" opacity={scrolled ? 0.4 : 0.5}/>
+        <circle cx="30" cy="30" r="25" fill="none" stroke={primary} strokeWidth="0.5" opacity={scrolled ? 0.3 : 0.4}/>
+        {/* Ship wheel - 8 spokes */}
+        <g transform="translate(30,30)" stroke={primary} strokeWidth="1" opacity={scrolled ? 0.85 : 0.95}>
+          <circle cx="0" cy="0" r="11" fill="none"/>
+          <circle cx="0" cy="0" r="3" fill={accent}/>
+          {[0, 45, 90, 135, 180, 225, 270, 315].map(a => (
+            <line key={a} x1="0" y1="0"
+                  x2={Math.cos(a * Math.PI / 180) * 14}
+                  y2={Math.sin(a * Math.PI / 180) * 14}/>
+          ))}
+        </g>
+        {/* Year text */}
+        <text x="30" y="55" textAnchor="middle" fontFamily="serif" fontSize="6"
+              fontWeight="600" fill={primary} letterSpacing="0.1em" opacity={scrolled ? 0.6 : 0.7}>1996</text>
+      </svg>
+
+      <div className="leading-tight">
+        <div className={`text-[10px] tracking-[0.22em] uppercase font-medium ${scrolled ? "text-navy/70" : "text-white/80"}`}>
+          ADDA · 1996
+        </div>
+        <div className={`font-display text-[16px] font-medium ${scrolled ? "text-navy" : "text-white"}`}>
+          Maritime Conference
+        </div>
+      </div>
+    </div>
   );
 }
 

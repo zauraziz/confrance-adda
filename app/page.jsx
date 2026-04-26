@@ -11,33 +11,39 @@ import MarqueeStrip from "@/components/MarqueeStrip";
 import SubmitCtaSection from "@/components/SubmitCtaSection";
 
 export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [speakers, day1, day2, day3, content, menuPages, sections, partners, settings] = await Promise.all([
+  const [speakers, day1, day2, content, menuPages, sectionsData, partnersData, settingsData, marqueeData, menuItemsData] = await Promise.all([
     getSpeakers(),
     getSessionsByDay(1),
     getSessionsByDay(2),
-    getSessionsByDay(3),
     getSiteContent(),
     getMenuPages(),
     sql`SELECT * FROM sections WHERE is_active = true ORDER BY sort_order, number`.catch(() => []),
     sql`SELECT * FROM partners WHERE is_active = true ORDER BY sort_order`.catch(() => []),
     sql`SELECT key, value FROM site_settings`.catch(() => []),
+    sql`SELECT * FROM marquee_items WHERE is_active = true ORDER BY sort_order`.catch(() => []),
+    sql`SELECT * FROM menu_items WHERE is_active = true ORDER BY position, sort_order`.catch(() => []),
   ]);
 
-  const settingsMap = {};
-  (settings || []).forEach(s => { settingsMap[s.key] = s.value; });
+  const settings = {};
+  (settingsData || []).forEach(s => { settings[s.key] = s.value; });
 
   return (
     <div className="font-sans antialiased text-ink bg-white">
-      <PublicHeader menuPages={menuPages} />
-      <HomeHero content={content.hero || {}} settings={settingsMap} />
-      <MarqueeStrip />
+      <PublicHeader
+        menuPages={menuPages}
+        menuItems={menuItemsData}
+        logoUrl={settings.logo_url}
+      />
+      <HomeHero content={content.hero || {}} settings={settings} />
+      <MarqueeStrip items={marqueeData} />
       <HomeAbout content={content.about || {}} />
-      <HomeSections sections={sections} />
+      <HomeSections sections={sectionsData} />
       <HomeSpeakers speakers={speakers} />
-      <HomeProgramme schedule={{ 1: day1, 2: day2, 3: day3 }} />
-      <HomePartners partners={partners} />
+      <HomeProgramme schedule={{ 1: day1, 2: day2 }} />
+      <HomePartners partners={partnersData} />
       <SubmitCtaSection />
       <PublicFooter content={content.footer || {}} menuPages={menuPages} />
     </div>

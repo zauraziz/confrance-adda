@@ -1,22 +1,64 @@
 "use client";
 import { useState } from "react";
-import { Check, ArrowRight, ArrowLeft, AlertCircle } from "lucide-react";
+import { Check, ArrowRight, ArrowLeft, AlertCircle, Upload, File, X, Loader2 } from "lucide-react";
 import { useLang } from "./LangProvider";
 
-export default function ArticleSubmissionForm() {
-  const { lang, t } = useLang();
+export default function ArticleSubmissionForm({ sections = [] }) {
+  const { lang } = useLang();
+  const isAz = lang === "az";
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [accepted, setAccepted] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [fileError, setFileError] = useState("");
   const [data, setData] = useState({
     full_name: "", email: "", phone: "", country: "Azərbaycan",
     organization: "", position: "",
-    title: "", abstract: "", keywords: "", topic_area: "Dənizçilik təhsili",
+    title: "", abstract: "", keywords: "", topic_area: "Maritime education",
     language: lang,
+    file_url: null,
+    file_name: null,
+    section_id: null,
   });
   const update = (k, v) => setData(d => ({ ...d, [k]: v }));
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setFileError("");
+
+    // 10 MB limit
+    if (file.size > 10 * 1024 * 1024) {
+      setFileError(isAz ? "Fayl 10 MB-dan böyükdür" : "File exceeds 10 MB");
+      return;
+    }
+    // Type check
+    const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    if (!allowed.includes(file.type)) {
+      setFileError(isAz ? "Yalnız PDF, DOC, DOCX qəbul olunur" : "Only PDF, DOC, DOCX accepted");
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("folder", "articles");
+      fd.append("kind", "document");
+      fd.append("public", "true");
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || "Yükləmə uğursuz");
+      update("file_url", j.url);
+      update("file_name", file.name);
+    } catch (e) {
+      setFileError(e.message);
+    } finally {
+      setUploadingFile(false);
+    }
+  };
 
   const submit = async () => {
     setSubmitting(true); setError("");
@@ -27,63 +69,74 @@ export default function ArticleSubmissionForm() {
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || (lang === "az" ? "Xəta baş verdi" : "An error occurred"));
+        // Format zod errors better
+        let msg;
+        if (Array.isArray(j.error)) {
+          msg = j.error.map(e => e.path ? `${e.path.join('.')}: ${e.message}` : e.message).join(', ');
+        } else if (typeof j.error === 'object' && j.error !== null) {
+          msg = JSON.stringify(j.error);
+        } else {
+          msg = j.error || (isAz ? "Xəta baş verdi" : "An error occurred");
+        }
+        throw new Error(msg);
       }
       setSubmitted(true);
-    } catch (e) { setError(typeof e.message === "string" ? e.message : "Xəta"); }
+    } catch (e) {
+      setError(typeof e.message === "string" ? e.message : (isAz ? "Xəta baş verdi" : "An error occurred"));
+    }
     finally { setSubmitting(false); }
   };
 
-  const labels = lang === "az" ? {
+  const labels = isAz ? {
     eyebrow: "Məqalə göndər",
     title: "Elmi məqalə müraciəti",
     sub: "Konfransa təqdim edilən məqalələr peer-review prosesindən keçir.",
     rules: [
       ["01", "Format və həcm", "Annotasiya 150–300 söz, məqalənin tam mətni 4 000–8 000 söz. APA 7-ci nəşr istinad standartı."],
-      ["02", "Mövzu istiqamətləri", "Dənizçilik təhsili, gəmi mühəndisliyi, Xəzər siyasəti, təsnifat və təhlükəsizlik, liman infrastrukturu."],
-      ["03", "Dil", "Məqalə Azərbaycan və ya İngilis dillərində qəbul olunur."],
+      ["02", "Bölmələr", "6 elmi istiqamət: gəmiqayırma, AI, energetika, ekologiya, iqtisadiyyat, hüquq."],
+      ["03", "Dil", "Məqalə Azərbaycan, İngilis və ya Rus dillərində qəbul olunur."],
       ["04", "Orijinallıq", "Müraciət olunan iş əvvəllər nəşr olunmamış olmalıdır. Plagiat 15%-dən çox olmamalıdır."],
-      ["05", "Müddət", "Annotasiya: 15 mart 2026. Tam mətn: 15 may 2026."],
-      ["06", "Geri dönüş", "Bütün bildirişlər e-poçtla göndəriləcək. Cavab müddəti — 14 iş günü."],
+      ["05", "Müddət", "Annotasiya: 15 avqust 2026. Tam mətn: 15 sentyabr 2026."],
+      ["06", "Fayl", "PDF, DOC və ya DOCX formatında, maks. 10 MB."],
     ],
     s1: "1. Müəllif məlumatları",
     s2: "2. Məqalə məlumatları",
     s3: "3. Yoxlama və təsdiq",
     fullName: "Ad Soyad *", email: "E-poçt *", phone: "Telefon", country: "Ölkə",
     organization: "Təşkilat / Universitet", position: "Vəzifə / Elmi dərəcə",
-    titleField: "Məqalənin başlığı *", topic: "Mövzu istiqaməti", language: "Yazı dili",
+    titleField: "Məqalənin başlığı *", topic: "Bölmə", language: "Yazı dili",
     keywords: "Açar sözlər (5-7 ədəd)", abstract: "Annotasiya (150–300 söz) *",
-    consent: "Yuxarıdakı qaydalarla tanış olduğumu və əsərimin orijinal olduğunu təsdiq edirəm.",
+    fileLabel: "Tam məqalə faylı (PDF, DOC, DOCX — maks. 10 MB)",
+    consent: "Qaydalarla tanış olduğumu və əsərimin orijinal olduğunu təsdiq edirəm.",
     back: "Geri", next: "Davam", submit: "Müraciəti göndər", submitting: "Göndərilir…",
     received: "Müraciətiniz qəbul edildi",
     receivedSub: "Təsdiq məktubu e-poçtunuza göndərildi. Elmi şura 14 iş günü ərzində nəzərdən keçirəcək.",
     words: "söz",
-    topicOpts: ["Dənizçilik təhsili","Gəmi mühəndisliyi","Xəzər siyasəti","Təsnifat və təhlükəsizlik","Liman infrastrukturu","Kursant hazırlığı"],
   } : {
     eyebrow: "Submit article",
     title: "Call for papers",
     sub: "Submitted papers undergo peer review.",
     rules: [
       ["01", "Format & length", "Abstract 150–300 words, full paper 4,000–8,000 words. APA 7th edition citations."],
-      ["02", "Topic areas", "Maritime education, naval engineering, Caspian policy, classification & safety, port infrastructure."],
-      ["03", "Language", "Articles accepted in Azerbaijani or English."],
+      ["02", "Sections", "6 scientific tracks: shipbuilding, AI, energy, ecology, economics, law."],
+      ["03", "Language", "Articles accepted in Azerbaijani, English or Russian."],
       ["04", "Originality", "Submission must be unpublished. Plagiarism rate must not exceed 15%."],
-      ["05", "Deadlines", "Abstract: 15 March 2026. Full paper: 15 May 2026."],
-      ["06", "Response", "All notifications sent via email. Response time — 14 business days."],
+      ["05", "Deadlines", "Abstract: 15 August 2026. Full paper: 15 September 2026."],
+      ["06", "File", "PDF, DOC or DOCX format, max. 10 MB."],
     ],
     s1: "1. Author information",
     s2: "2. Article information",
     s3: "3. Review & confirm",
     fullName: "Full name *", email: "Email *", phone: "Phone", country: "Country",
     organization: "Organization / University", position: "Position / Academic title",
-    titleField: "Article title *", topic: "Topic area", language: "Language",
+    titleField: "Article title *", topic: "Section", language: "Language",
     keywords: "Keywords (5-7)", abstract: "Abstract (150–300 words) *",
+    fileLabel: "Full article file (PDF, DOC, DOCX — max. 10 MB)",
     consent: "I confirm that I have read the rules and that my work is original.",
     back: "Back", next: "Continue", submit: "Submit application", submitting: "Submitting…",
     received: "Application received",
     receivedSub: "Confirmation has been sent to your email. The committee will respond within 14 business days.",
     words: "words",
-    topicOpts: ["Maritime education","Naval engineering","Caspian policy","Classification & safety","Port infrastructure","Cadet training"],
   };
 
   if (submitted) {
@@ -99,6 +152,8 @@ export default function ArticleSubmissionForm() {
       </section>
     );
   }
+
+  const wordCount = data.abstract.split(/\s+/).filter(Boolean).length;
 
   return (
     <section className="py-32 bg-gradient-to-b from-navy-deep via-navy to-navy-dark text-white min-h-screen">
@@ -133,7 +188,8 @@ export default function ArticleSubmissionForm() {
 
               {error && (
                 <div className="mb-4 flex items-start gap-2 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
-                  <AlertCircle className="w-4 h-4 mt-0.5" /> {String(error)}
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{error}</span>
                 </div>
               )}
 
@@ -156,10 +212,49 @@ export default function ArticleSubmissionForm() {
                   <h3 className="font-display text-2xl text-navy mb-6">{labels.s2}</h3>
                   <div className="grid gap-5">
                     <Field label={labels.titleField} full value={data.title} onChange={v=>update('title',v)} />
-                    <Select label={labels.topic} value={data.topic_area} onChange={v=>update('topic_area',v)} options={labels.topicOpts} />
+                    {sections.length > 0 && (
+                      <Select label={labels.topic} value={data.section_id || ''} onChange={v=>update('section_id', Number(v) || null)}
+                              options={sections.map(s => ({ v: s.id, l: `${s.number}. ${isAz ? s.title_az : s.title_en}` }))}
+                              placeholder={isAz ? "-- Bölmə seçin --" : "-- Select section --"} />
+                    )}
                     <Field label={labels.keywords} full value={data.keywords} onChange={v=>update('keywords',v)} />
                     <Textarea label={labels.abstract} rows={8} value={data.abstract} onChange={v=>update('abstract',v)}
-                              hint={`${data.abstract.split(/\s+/).filter(Boolean).length} ${labels.words}`} />
+                              hint={`${wordCount} ${labels.words}`} />
+
+                    {/* FILE UPLOAD */}
+                    <div>
+                      <span className="block text-[10.5px] tracking-[0.22em] uppercase text-ink/55 mb-2">
+                        {labels.fileLabel}
+                      </span>
+                      {data.file_url ? (
+                        <div className="flex items-center justify-between p-3 bg-cream rounded-lg border border-navy/10">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <File className="w-4 h-4 text-gold shrink-0" />
+                            <span className="text-sm text-navy truncate">{data.file_name}</span>
+                          </div>
+                          <button type="button"
+                                  onClick={() => { update('file_url', null); update('file_name', null); }}
+                                  className="text-ink/40 hover:text-red-500 shrink-0">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="block cursor-pointer">
+                          <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleFileUpload} />
+                          <div className={`flex items-center justify-center gap-2 py-4 rounded-lg border-2 border-dashed text-sm transition-all ${
+                            uploadingFile ? 'border-gold bg-gold/5 text-gold-dark'
+                                          : 'border-navy/20 text-navy/60 hover:border-navy/40 hover:bg-navy/5'
+                          }`}>
+                            {uploadingFile ? (
+                              <><Loader2 className="w-4 h-4 animate-spin" /> {isAz ? "Yüklənir..." : "Uploading..."}</>
+                            ) : (
+                              <><Upload className="w-4 h-4" /> {isAz ? "Fayl seç" : "Choose file"}</>
+                            )}
+                          </div>
+                        </label>
+                      )}
+                      {fileError && <div className="mt-2 text-xs text-red-600">{fileError}</div>}
+                    </div>
                   </div>
                 </div>
               )}
@@ -168,12 +263,15 @@ export default function ArticleSubmissionForm() {
                 <div>
                   <h3 className="font-display text-2xl text-navy mb-6">{labels.s3}</h3>
                   <div className="space-y-3 text-sm border border-navy/10 rounded-xl p-5 mb-6">
-                    <Row k={labels.fullName} v={data.full_name} />
-                    <Row k={labels.email} v={data.email} />
+                    <Row k={labels.fullName.replace(' *', '')} v={data.full_name} />
+                    <Row k={labels.email.replace(' *', '')} v={data.email} />
                     <Row k={labels.organization} v={data.organization} />
-                    <Row k={labels.titleField} v={data.title} />
-                    <Row k={labels.topic} v={data.topic_area} />
-                    <Row k={labels.abstract} v={`${data.abstract.split(/\s+/).filter(Boolean).length} ${labels.words}`} />
+                    <Row k={labels.titleField.replace(' *', '')} v={data.title} />
+                    <Row k={labels.topic} v={
+                      data.section_id ? sections.find(s => s.id === data.section_id)?.[isAz ? 'title_az' : 'title_en'] : '—'
+                    } />
+                    <Row k={labels.abstract.replace(' *', '')} v={`${wordCount} ${labels.words}`} />
+                    <Row k={isAz ? "Fayl" : "File"} v={data.file_name || '—'} />
                   </div>
                   <label className="flex items-start gap-3 text-sm text-ink/75 cursor-pointer">
                     <input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)} className="mt-1 w-4 h-4 accent-[#c9a55a]" />
@@ -189,7 +287,8 @@ export default function ArticleSubmissionForm() {
                 </button>
                 {step < 3 ? (
                   <button onClick={() => setStep(step+1)}
-                          disabled={step===1 ? (!data.full_name||!data.email) : (!data.title||!data.abstract)}
+                          disabled={step===1 ? (!data.full_name||!data.email)
+                                              : (!data.title||!data.abstract||wordCount<50)}
                           className="inline-flex items-center gap-2 bg-navy hover:bg-navy-deep text-white px-7 py-3.5 rounded-full text-sm font-semibold disabled:opacity-40">
                     {labels.next} <ArrowRight className="w-4 h-4" />
                   </button>
@@ -231,13 +330,14 @@ function Textarea({ label, value, onChange, rows=4, hint }) {
   );
 }
 
-function Select({ label, value, onChange, options }) {
+function Select({ label, value, onChange, options, placeholder = "-- Select --" }) {
   return (
     <label className="block">
       <span className="block text-[10.5px] tracking-[0.22em] uppercase text-ink/55 mb-2">{label}</span>
       <select value={value} onChange={e=>onChange(e.target.value)}
               className="w-full bg-transparent border-b border-navy/15 focus:border-gold outline-none py-2.5 text-[15px] text-navy">
-        {options.map(o => <option key={o} value={o}>{o}</option>)}
+        <option value="">{placeholder}</option>
+        {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
       </select>
     </label>
   );
@@ -245,9 +345,9 @@ function Select({ label, value, onChange, options }) {
 
 function Row({ k, v }) {
   return (
-    <div className="flex justify-between border-b border-navy/10 pb-2">
+    <div className="flex justify-between gap-4 border-b border-navy/10 pb-2 last:border-0 last:pb-0">
       <span className="text-ink/55">{k}</span>
-      <span className="font-medium text-navy">{v||'—'}</span>
+      <span className="font-medium text-navy text-right truncate max-w-[60%]">{v||'—'}</span>
     </div>
   );
 }
