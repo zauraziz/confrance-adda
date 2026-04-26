@@ -126,29 +126,6 @@ export default function HomeProgramme({ schedule = { 1: [], 2: [] } }) {
             })}
           </motion.div>
         </AnimatePresence>
-
-        {/* Jubilee day note */}
-        <div className="mt-16 p-6 rounded-2xl bg-gradient-to-r from-navy-deep/95 to-navy text-white">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-gold/20 flex items-center justify-center shrink-0">
-              <Award className="w-5 h-5 text-gold" />
-            </div>
-            <div>
-              <div className="text-[10px] tracking-[0.25em] uppercase text-gold mb-2">
-                {isAz ? "28 Oktyabr 2026" : "28 October 2026"}
-              </div>
-              <h4 className="font-display text-[20px] mb-2">
-                {isAz ? "Yubiley tədbirləri günü" : "Jubilee Day"}
-              </h4>
-              <p className="text-[14px] text-white/75 leading-relaxed">
-                {isAz
-                  ? "Heydər Əliyev Mərkəzində açılış mərasimi (11:00–13:00), nahar “Suraxanı” gəmi muzeyində, mədəni proqram və furşet ADDA-da."
-                  : "Opening ceremony at the Heydar Aliyev Center (11:00–13:00), lunch at the “Surakhani” ship museum, cultural programme and reception at ADDA."
-                }
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );

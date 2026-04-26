@@ -1,6 +1,8 @@
 "use client";
 import { useRef } from "react";
+import Link from "next/link";
 import { motion, useInView } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 import { useLang } from "./LangProvider";
 
 export default function HomeSections({ sections = [] }) {
@@ -9,7 +11,6 @@ export default function HomeSections({ sections = [] }) {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, amount: 0.1 });
 
-  // Default 6 sections (proqram faylına uyğun)
   const defaults = [
     {
       id: 1, number: 1,
@@ -55,7 +56,7 @@ export default function HomeSections({ sections = [] }) {
     },
   ];
 
-  // De-duplicate by `number` to prevent doubles from DB
+  // De-duplicate
   const seen = new Set();
   const unique = [];
   (sections.length > 0 ? sections : defaults).forEach(s => {
@@ -64,7 +65,6 @@ export default function HomeSections({ sections = [] }) {
       unique.push(s);
     }
   });
-  // Sort by number ascending
   unique.sort((a, b) => (a.number || 0) - (b.number || 0));
 
   return (
@@ -82,29 +82,36 @@ export default function HomeSections({ sections = [] }) {
           </h2>
           <p className="mt-6 text-[15px] text-ink/70 max-w-lg">
             {isAz
-              ? "Altı elmi istiqamətdə peer-review prosesindən keçən məqalələr qəbul olunur."
-              : "Peer-reviewed papers are accepted across six scientific tracks."}
+              ? "Altı elmi istiqamətdə peer-review prosesindən keçən məqalələr qəbul olunur. Hər bölməyə klikləyərək ətraflı məlumat ala bilərsiniz."
+              : "Peer-reviewed papers are accepted across six scientific tracks. Click any section for details."}
           </p>
         </motion.div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-navy/10">
           {unique.map((s, i) => (
-            <motion.div key={s.id || s.number} initial={{ opacity: 0, y: 30 }}
+            <motion.div key={s.id || s.number}
+                        initial={{ opacity: 0, y: 30 }}
                         animate={inView ? { opacity: 1, y: 0 } : {}}
-                        transition={{ duration: 0.6, delay: i * 0.06 }}
-                        className="bg-white p-8 hover:bg-cream transition-colors group">
-              <div className="flex items-baseline gap-3 mb-4">
-                <span className="font-display text-5xl text-gold leading-none">0{s.number}</span>
-                <span className="text-[10px] tracking-[0.25em] uppercase text-ink/40">
-                  {isAz ? "Bölmə" : "Section"}
-                </span>
-              </div>
-              <h3 className="font-display text-[20px] text-navy mb-4 leading-tight group-hover:text-navy-deep transition-colors">
-                {isAz ? s.title_az : s.title_en}
-              </h3>
-              <p className="text-[13.5px] text-ink/70 leading-relaxed">
-                {isAz ? s.description_az : s.description_en}
-              </p>
+                        transition={{ duration: 0.6, delay: i * 0.06 }}>
+              <Link href={`/sections/${s.id || s.number}`}
+                    className="bg-white p-8 hover:bg-cream transition-colors group block h-full">
+                <div className="flex items-baseline gap-3 mb-4">
+                  <span className="font-display text-5xl text-gold leading-none">0{s.number}</span>
+                  <span className="text-[10px] tracking-[0.25em] uppercase text-ink/40">
+                    {isAz ? "Bölmə" : "Section"}
+                  </span>
+                </div>
+                <h3 className="font-display text-[20px] text-navy mb-4 leading-tight group-hover:text-navy-deep transition-colors">
+                  {isAz ? s.title_az : s.title_en}
+                </h3>
+                <p className="text-[13.5px] text-ink/70 leading-relaxed line-clamp-3">
+                  {isAz ? s.description_az : s.description_en}
+                </p>
+                <div className="mt-5 inline-flex items-center gap-2 text-[11px] tracking-[0.2em] uppercase text-ink/45 group-hover:text-gold transition-colors">
+                  {isAz ? "Ətraflı bax" : "View details"}
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                </div>
+              </Link>
             </motion.div>
           ))}
         </div>

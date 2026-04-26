@@ -7,6 +7,7 @@ import { useLang } from "./LangProvider";
 
 export default function PublicHeader({ menuPages = [], menuItems = null, logoUrl = null }) {
   const { lang, setLang, t } = useLang();
+  const isAz = lang === "az";
   const [navOpen, setNavOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -20,6 +21,7 @@ export default function PublicHeader({ menuPages = [], menuItems = null, logoUrl
   // Default links - əgər admin-dən menyu gəlmirsə
   const defaultLinks = [
     { href: "/#about", label: t.navAbout },
+    { href: "/#sections", label: isAz ? "Bölmələr" : "Sections" },
     { href: "/#speakers", label: t.navSpeakers },
     { href: "/#programme", label: t.navProgramme },
     { href: "/register", label: t.navSubmit },

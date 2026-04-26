@@ -43,15 +43,37 @@ export default function PublicFooter({ content = {}, menuPages = [] }) {
                 : "Since 1996, the principal IMO-recognised institution of higher maritime education. International Scientific-Practical Conference platform for academic cooperation and exchange."
               }
             </p>
-            <div className="mt-8 flex items-center gap-3">
+
+            {/* GOVERNMENT HIERARCHY - sadə loqolar (başlıq yox) */}
+            <div className="mt-8 flex items-center gap-5 flex-wrap">
+              {[
+                { short: "RİNN", title_az: "Rəqəmsal İnkişaf və Nəqliyyat Nazirliyi", title_en: "Ministry of Digital Development and Transport", href: "https://mincom.gov.az" },
+                { short: "AZCON", title_az: "AZCON Holdinq", title_en: "AZCON Holding", href: "https://azcon.az" },
+                { short: "ASCO", title_az: "Azərbaycan Xəzər Dəniz Gəmiçiliyi", title_en: "Azerbaijan Caspian Shipping", href: "https://www.asco.az" },
+                { short: "DDLA", title_az: "Dövlət Dəniz və Liman Agentliyi", title_en: "State Maritime and Port Agency", href: "https://maritime.gov.az" },
+              ].map(org => (
+                <a key={org.short} href={org.href} target="_blank" rel="noopener noreferrer"
+                   title={isAz ? org.title_az : org.title_en}
+                   className="group">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gold/20 to-gold/5 flex items-center justify-center border border-gold/25 group-hover:border-gold/60 group-hover:from-gold/30 transition-all">
+                    <span className="font-display text-[10px] font-semibold text-gold tracking-tight">
+                      {org.short}
+                    </span>
+                  </div>
+                </a>
+              ))}
+            </div>
+
+            {/* SOCIAL */}
+            <div className="mt-6 flex items-center gap-3">
               {[
                 { Ic: Linkedin, href: "https://linkedin.com" },
                 { Ic: Facebook, href: "https://facebook.com" },
                 { Ic: Youtube, href: "https://youtube.com" },
               ].map(({ Ic, href }, i) => (
                 <a key={i} href={href} target="_blank" rel="noopener noreferrer" aria-label="Social"
-                   className="w-10 h-10 rounded-full border border-white/15 hover:border-gold hover:text-gold flex items-center justify-center transition-colors">
-                  <Ic className="w-4 h-4" />
+                   className="w-9 h-9 rounded-full border border-white/15 hover:border-gold hover:text-gold flex items-center justify-center transition-colors">
+                  <Ic className="w-3.5 h-3.5" />
                 </a>
               ))}
             </div>
@@ -73,19 +95,15 @@ export default function PublicFooter({ content = {}, menuPages = [] }) {
           <div className="lg:col-span-2">
             <div className="text-[11px] tracking-[0.25em] uppercase text-gold mb-5">{t.resources}</div>
             <ul className="space-y-3 text-[13.5px] text-white/70">
-              {menuPages.length > 0 ? menuPages.map(p => (
+              <li><Link href="/p/privacy" className="hover:text-white">{t.privacy}</Link></li>
+              <li><Link href="/p/terms" className="hover:text-white">{t.terms}</Link></li>
+              {menuPages.filter(p => p.slug !== 'etrafli').map(p => (
                 <li key={p.slug}>
                   <Link href={`/p/${p.slug}`} className="hover:text-white">
                     {lang === "az" ? p.title_az : p.title_en}
                   </Link>
                 </li>
-              )) : (
-                <>
-                  <li><Link href="/p/etrafli" className="hover:text-white">{isAz ? "Ətraflı" : "Details"}</Link></li>
-                  <li><Link href="/p/privacy" className="hover:text-white">{t.privacy}</Link></li>
-                  <li><Link href="/p/terms" className="hover:text-white">{t.terms}</Link></li>
-                </>
-              )}
+              ))}
             </ul>
           </div>
 
@@ -108,56 +126,6 @@ export default function PublicFooter({ content = {}, menuPages = [] }) {
                 <span>Bakı, Azərbaycan</span>
               </li>
             </ul>
-          </div>
-        </div>
-
-        {/* GOVERNMENT HIERARCHY - ASCO, AZCON, Nazirlik, Liman Agentliyi */}
-        <div className="py-10 border-b border-white/10">
-          <div className="text-[10px] tracking-[0.3em] uppercase text-white/40 mb-8 text-center">
-            {isAz ? "Tabe olduğu qurumlar" : "Affiliated organizations"}
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              {
-                short: "RİNN",
-                full_az: "Rəqəmsal İnkişaf və\nNəqliyyat Nazirliyi",
-                full_en: "Ministry of Digital\nDevelopment and Transport",
-                href: "https://mincom.gov.az",
-              },
-              {
-                short: "AZCON",
-                full_az: "AZCON Holdinq",
-                full_en: "AZCON Holding",
-                href: "https://azcon.az",
-              },
-              {
-                short: "ASCO",
-                full_az: "Azərbaycan Xəzər Dəniz\nGəmiçiliyi (ASCO)",
-                full_en: "Azerbaijan Caspian\nShipping Company",
-                href: "https://www.asco.az",
-              },
-              {
-                short: "DDLA",
-                full_az: "Dövlət Dəniz və\nLiman Agentliyi",
-                full_en: "State Maritime and\nPort Agency",
-                href: "https://maritime.gov.az",
-              },
-            ].map((org) => (
-              <a key={org.short} href={org.href} target="_blank" rel="noopener noreferrer"
-                 className="group flex items-center gap-4 p-4 rounded-xl border border-white/10 hover:border-gold/40 hover:bg-white/[0.03] transition-all">
-                {/* Stylized monogram */}
-                <div className="shrink-0 w-14 h-14 rounded-full bg-gradient-to-br from-gold/20 to-gold/5 flex items-center justify-center border border-gold/30 group-hover:from-gold/30 transition-colors">
-                  <span className="font-display text-[15px] font-semibold text-gold tracking-tight">
-                    {org.short}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[13px] font-medium text-white/90 leading-tight whitespace-pre-line">
-                    {isAz ? org.full_az : org.full_en}
-                  </div>
-                </div>
-              </a>
-            ))}
           </div>
         </div>
 
